@@ -1,0 +1,7 @@
+import numpy as np
+
+A = np.ones((5, 5))
+print(A)
+A = np.delete(A,0,axis=0)
+
+print(A)
