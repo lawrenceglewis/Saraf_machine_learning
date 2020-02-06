@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 from numpy.linalg import inv
 
 # Give the location of the file 
-loc = (r"C:\Users\Lawrence\machine learning\proj1Dataset.xlsx") 
+loc = (r"C:\Users\Lawrence\machine learning\Saraf_machine_learning\proj1Dataset.xlsx") 
 
 # To open Workbook 
 wb = xlrd.open_workbook(loc) 
 sheet = wb.sheet_by_index(0) 
 
-# Extracting number of rows 
+# Extracting number of rows not null
 excelRows = int(sheet.nrows)
 
 # Extracting number of columns 
@@ -21,14 +21,23 @@ excelCols = int(sheet.ncols)
 # design matrix
 X = np.ones((excelRows -1, excelCols))
 
+
+# total sum of each dimension excluding 
+total_sum = np.ones(excelCols-1)
+
 for i in range (excelRows -1):
 	for j in range (excelCols - 1):
 		#print(int(sheet.cell_value(i+1,j)))
 		X[i,j] = int(sheet.cell_value(i+1,j))
+		total_sum[j] += total_sum[j]
+print(X)
 weight = X[:,0]
 number_of_deletes = 0;
 #target vector is horsepower
 horsepower = np.zeros((excelRows-1,1))
+
+#target vector sum of all points
+target_sum = 0
 for i in range(excelRows - 1):
 	if isinstance(sheet.cell_value(i+1, 1), str):
 		excelRows -= 1
@@ -39,6 +48,10 @@ for i in range(excelRows - 1):
 		number_of_deletes += 1
 	else:
 		horsepower[i-number_of_deletes,0] = int(sheet.cell_value(i+1, 1))
+		target_sum += int(sheet.cell_value(i+1, 1))
+
+# calculate target standard deviation
+#for i in range(excelRows - number_of_deletes - 1)
 
 X_T = X.transpose()
 
@@ -62,7 +75,6 @@ for i in range(k):
 	w = np.squeeze(np.asarray(np.subtract(w,(l*((2 * w.transpose().dot(X_T).dot(X) )- (2 * horsepower.transpose().dot(X)))))))
 
 x=np.linspace(1500,5500,3500)
-print(w)
 yg = w[0]*x+w[1]
 
 #plotting
