@@ -17,14 +17,17 @@ def closed_line_fit_polynomial(input_data,target_data,M,lmbda,num_samp):
 			phi[j] = l**j
 		phi_train[i] = phi[:]
 
-	w_train = np.matmul(inv(np.matmul(phi_train.transpose(),phi_train)+ lmbda * np.identity(M+1)) ,np.matmul(phi_train.transpose(), input_data))
-	#todo make linespace automatic
-	# x=np.linspace(0,1,num_samp)
-	# # print(X_train[0])
-	# # print(train_samples)
-	# best_fit_line=w_train[0]*x**0
-	# for i in range(M):
-	# 	best_fit_line+= w_train[i+1]*x**(i+1)
+	#w_train = np.matmul(np.matmul(inv(np.matmul(phi_train.transpose(),phi_train)) ,phi_train.transpose()), input_data.transpose())#/*+ lmbda * np.identity(M+1)*/
+	w_train = np.matmul(np.linalg.pinv(phi_train),target_data)
+	print('weights')
+	print(w_train)
+	return w_train
+def creat_line_from_weights(number_of_samples,weights):
+	dimensions = weights.shape
+	x=np.linspace(0,1,number_of_samples)
+	best_fit_line= np.zeros(number_of_samples)
+	for i in range(dimensions[0]):
+		best_fit_line+= weights[i]*(x**(i))
 	return best_fit_line
 
 def E_rms(target_vector, guess_vector):
@@ -41,33 +44,28 @@ D = 1
 
 #------------------- generate training set --------------------------
 # number of training samples
-nt = 10
+ntrain = 10
 
 # set seed so that we have same distribution every time
 np.random.seed(0)
 
 # sample nt samples from a uniform distribution
-train_samples = np.random.uniform(0,1,nt)
-
-
-
+train_samples = np.random.uniform(0,1,ntrain)
 
 # design matrix
-X_train = np.ones((nt, D+1))
+X_train = np.ones((ntrain, D+1))
 
-for i in range(nt):
+for i in range(ntrain):
 	X_train[i,0] = train_samples[i]
 
 # noise from gausian distribution with mean = 0 standard deviation = .3
 mu, sigma = 0, .3
-e = np.random.normal(mu, sigma, nt)
-#X = np.squeeze(X)
-# print(X_train[:,0])
+e = np.random.normal(mu, sigma, ntrain)
+
 # target vector with error
 t_train = np.sin(2*math.pi*X_train[:,0]) + e
 
-# perfect target
-p_target = np.sin(2*math.pi*X_train[:,0])
+
 
 #------------------generate test set -------------------------------
 # number of testing samples
@@ -96,24 +94,25 @@ lambbda  = 0
 
 # degree of polynomial
 M_max = 10
+# make line smoother by over making sample size larger
+sm = 1
 training_error = np.zeros(M_max)
 testing_error  = np.zeros(M_max)
-train_output = np.zeros((M_max,nt))
-test_output  = np.zeros((M_max,ntest))
+train_weights = np.zeros((M_max,M_max))
+test_weights  = np.zeros((M_max,M_max))
+output_line_train = np.zeros((ntrain*sm,M_max))
+output_line_test  = np.zeros((ntest*sm,M_max))
+print(train_samples)
 for i in range(M_max):
-	train_output[i] = closed_line_fit_polynomial(train_samples,t_train,i,lambbda,nt)
-	test_output[i]  = closed_line_fit_polynomial(test_samples,t_test,i,lambbda,ntest)
-
-	training_error[i]  = E_rms(t_train , train_output[i])
-	testing_error[i]   = E_rms(t_test , test_output[i])
-
-print('training_error')
-print(training_error)
-print('testing_error')
-print(testing_error)
+	train_weights[i] = np.pad(closed_line_fit_polynomial(train_samples,t_train,i,lambbda,ntrain),(0,M_max-i-1),'constant')
+	test_weights[i]  = np.pad(closed_line_fit_polynomial(test_samples,t_test,i,lambbda,ntest),(0,M_max-i-1),'constant')
+	output_line_test[:,i]  = creat_line_from_weights(ntest*sm,train_weights[i])
+	output_line_train[:,i] = creat_line_from_weights(ntrain*sm,train_weights[i])
+	training_error[i]  = E_rms(t_train , output_line_train[:,i])
+	testing_error[i]   = E_rms(t_test , output_line_test[:,i])
 M = 5
-phi_train = np.ones((nt,M))
-for i in range(nt):
+phi_train = np.ones((ntrain,M))
+for i in range(ntrain):
 	l = X_train[i,0]
 	phi = np.zeros(M)
 	for j in range(M):
@@ -123,38 +122,31 @@ for i in range(nt):
 
 w_train = np.matmul(inv(np.matmul(phi_train.transpose(),phi_train)+ lambbda * np.identity(M)) ,np.matmul(phi_train.transpose(), train_samples))
 
-x=np.linspace(0,1,nt)
-# print(X_train[0])
-# print(train_samples)
+x=np.linspace(0,1,ntrain*sm)
 y=w_train[0]*train_samples**0
 for i in range(M-1):
 	y+= w_train[i+1]*train_samples**(i+1)
 # for i in range(M-1):
 # 	y += w_train[M] * x**M
 
+# perfect target
+p_target = np.sin(2*math.pi*x)
 
+plt.figure()
 line1, = plt.plot(training_error, marker='o', label='training_error')
 line2, = plt.plot(testing_error, marker='o', label='testing_error')
 
 plt.legend()
 plt.show()
 
-# xe=np.linspace(0,M_max ,M_max)
-# plt.figure()
-# red_patch = mpatches.Patch(color='red', label='testing_error')
-# plt.legend(handles=[red_patch])
-# blue_patch = mpatches.Patch(color='blue', label='training')
-# plt.legend(handles=[blue_patch])
-# plt.plot(xe,training_error,'b.',xe,testing_error,'r.')
-# plt.show()
-#plotting
-# plt.figure()
-# plt.subplot(121)
-# plt.plot(train_samples,t_train, 'go',x,y, 'm')
-# plt.title('Closed Form')
-# plt.ylabel('sin with noise')
-# plt.xlabel('random x values from uniform distribution')
-# plt.show()
+for i in range(M_max):
+	plt.figure()
+	#plt.subplot(121)
+	plt.plot(train_samples,t_train, 'go',x,output_line_train[:,i], 'm',x,p_target,'y')
+	plt.title('Closed Form M = ' + str(i))
+	plt.ylabel('sin with noise')
+	plt.xlabel('random x values from uniform distribution')
+	plt.show()
 
 
 
