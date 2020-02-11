@@ -19,8 +19,6 @@ def closed_line_fit_polynomial(input_data,target_data,M,lmbda,num_samp):
 
 	#w_train = np.matmul(np.matmul(inv(np.matmul(phi_train.transpose(),phi_train)) ,phi_train.transpose()), input_data.transpose())#/*+ lmbda * np.identity(M+1)*/
 	w_train = np.matmul(np.linalg.pinv(phi_train),target_data)
-	print('weights')
-	print(w_train)
 	return w_train
 def creat_line_from_weights(number_of_samples,weights):
 	dimensions = weights.shape
@@ -29,7 +27,25 @@ def creat_line_from_weights(number_of_samples,weights):
 	for i in range(dimensions[0]):
 		best_fit_line+= weights[i]*(x**(i))
 	return best_fit_line
-
+def error_rms(weights,samples,targets):
+	num_samp    = samples.shape
+	num_weights = weights.shape
+	error = 0
+	
+	line_guesses = np.zeros(num_samp[0])
+	for i in range(num_samp[0]):
+		line_guess = 0
+		for j in range(num_weights[0]):
+			line_guess += weights[j]*samples[i]**j
+		line_guesses[i] = line_guess
+		error += (line_guess - targets[i])**2
+	error = (error/num_samp)**.5
+	print(weights)
+	plt.figure()
+	plt.plot(samples,targets, 'go',samples,line_guesses,'r.')
+	plt.show()
+	val = input("press enter to continue")
+	return error
 def E_rms(target_vector, guess_vector):
 	dimensions = target_vector.shape
 	error = 0
@@ -95,21 +111,23 @@ lambbda  = 0
 # degree of polynomial
 M_max = 10
 # make line smoother by over making sample size larger
-sm = 1
+sm = 10
 training_error = np.zeros(M_max)
 testing_error  = np.zeros(M_max)
 train_weights = np.zeros((M_max,M_max))
 test_weights  = np.zeros((M_max,M_max))
 output_line_train = np.zeros((ntrain*sm,M_max))
 output_line_test  = np.zeros((ntest*sm,M_max))
-print(train_samples)
+
 for i in range(M_max):
 	train_weights[i] = np.pad(closed_line_fit_polynomial(train_samples,t_train,i,lambbda,ntrain),(0,M_max-i-1),'constant')
 	test_weights[i]  = np.pad(closed_line_fit_polynomial(test_samples,t_test,i,lambbda,ntest),(0,M_max-i-1),'constant')
 	output_line_test[:,i]  = creat_line_from_weights(ntest*sm,train_weights[i])
 	output_line_train[:,i] = creat_line_from_weights(ntrain*sm,train_weights[i])
-	training_error[i]  = E_rms(t_train , output_line_train[:,i])
-	testing_error[i]   = E_rms(t_test , output_line_test[:,i])
+	training_error[i] = error_rms(train_weights[i],train_samples,t_train)
+	testing_error[i]  = error_rms(train_weights[i],test_samples,t_test)
+	#training_error[i]  = E_rms(t_train , output_line_train[:,i])
+	#testing_error[i]   = E_rms(t_test , output_line_test[:,i])
 M = 5
 phi_train = np.ones((ntrain,M))
 for i in range(ntrain):
